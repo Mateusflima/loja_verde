@@ -10,4 +10,4 @@ $file = '..' . DIRECTORY_SEPARATOR . $filename .'.php';
     echo 'Erro ao importar arquivo';
  endif;
 });
-
+?>

@@ -9,8 +9,8 @@
  1. [x] Salvar Produto
  2. [x] Pesquisar Produto
  3. [x] Pesquisar Produto ID
- 4. [ ] Alterar Produto
- 5. [ ] Excluir Produto
+ 4. [x] Alterar Produto
+ 5. [x] Excluir Produto
 6. [x] Criar a Classe de Modelo (Produto)
 7. [x] Criar o Core (Núcleo da Aplicação)
    1. [x] Criar o App.php (Carrega os Controles)

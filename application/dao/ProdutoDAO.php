@@ -1,87 +1,134 @@
 <?php
+
 namespace Application\dao;
 
 use Application\models\Produto;
 
-class ProdutoDAO{
-    // Create (C)
-public function salvar($produto){ 
-    $conexao = new Conexao(); // 1- Instancia o Objeto
-    // 2- Recebe a conexão
-    $conn = $conexao->getConexao();
-    // 3 - Receber os dados da outra camada
-    $nome =  $produto->getNome();
-    $marca = $produto->getMarca();
-    $preco = $produto->getPreco();
-    // 4 - Monta o SQL
-$SQL = "INSERT INTO produtos(codigo, nome, marca, preco) 
-VALUES (null, '$nome', '$marca', '$preco')";
-    if($conn->query($SQL) === TRUE){
-        return true;
-    }else{ echo "Error: ". $SQL. "<br />".$conn->error;
-    return false;
+class ProdutoDAO
+{
+    private $conexao;
+
+    public function __construct()
+    {
+        try {
+            $this->conexao = new \PDO("mysql:host=localhost;dbname=lojaverde", "root", "coyote01");
+            $this->conexao->setAttribute(\PDO::ATTR_ERRMODE, \PDO::ERRMODE_EXCEPTION);
+        } catch (\PDOException $e) {
+            echo "Erro na conexão: " . $e->getMessage();
+        }
     }
 
-    }
-    public function findAll(){
-    // 1 - Instancia
-    $conexao = new Conexao();
-    // 2 - Recebe 
-    $conn = $conexao->getConexao();
-    $SQL = "SELECT * FROM produtos";
-    $result = $conn->query($SQL);
-    $produtos = [];
-    while($row = $result->fetch_assoc()){
-$produto = new Produto($row["nome"], $row["marca"], $row["preco"]);
-$produto->setCodigo($row["codigo"]);
-array_push($produtos, $produto);
-    }
-    return $produtos;
-    }
-    // Retrieve (R)
-    public function findById($id){
-     $conexao = new Conexao();
-     $conn = $conexao->getConexao();
-     $SQL = "SELECT * FROM produtos WHERE codigo =".$id;
-     $result = $conn->query($SQL);
-     $row = $result->fetch_assoc();
-$produto = new Produto($row["nome"], $row["marca"], $row["preco"]);
-     $produto->setCodigo($row["codigo"]);
-     return $produto;
-    }
-    // Update (U)
-    public function atualizar($produto){
+    public function salvar($produto)
+    {
+        try {
+            $nome = $produto->getNome();
+            $marca = $produto->getMarca();
+            $preco = $produto->getPreco();
+            $imagem_url = $produto->getImagem_url();
 
-        // Criar o conexao
-        $conexao = new Conexao();
-        $conn = $conexao->getConexao();
-        // pega os dados
-        $codigo = $produto->getCodigo();
-        $nome = $produto->getNome();
-        $marca = $produto->getMarca();
-        $preco = $produto->getPreco();
-  $SQL = "UPDATE produtos SET nome = '$nome', marca = '$marca',
-   preco = '$preco' WHERE codigo =". $codigo; 
+            $stmt = $this->conexao->prepare("INSERT INTO produtos(nome, marca, preco, imagem_url) VALUES (:nome, :marca, :preco, :imagem_url)");
+            $stmt->bindParam(':nome', $nome);
+            $stmt->bindParam(':marca', $marca);
+            $stmt->bindParam(':preco', $preco);
+            $stmt->bindParam(':imagem_url', $imagem_url);
 
-if($conn->query($SQL) === TRUE){  
-    return $this->findById($codigo);
+            $stmt->execute();
+
+            return true;
+        } catch (\PDOException $e) {
+            echo "Erro ao salvar produto: " . $e->getMessage();
+            return false;
+        }
+    }
+
+    public function findAll()
+    {
+        try {
+            $stmt = $this->conexao->query("SELECT * FROM produtos");
+            $produtos = [];
+
+            while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+                $produto = new Produto($row["nome"], $row["marca"], $row["preco"], $row["imagem_url"]);
+                $produto->setCodigo($row["codigo"]);
+                array_push($produtos, $produto);
+            }
+
+            return $produtos;
+        } catch (\PDOException $e) {
+            echo "Erro ao recuperar produtos: " . $e->getMessage();
+            return [];
+        }
+    }
+
+    public function findById($id)
+    {
+        try {
+            $stmt = $this->conexao->prepare("SELECT * FROM produtos WHERE codigo = :id");
+            $stmt->bindParam(':id', $id);
+            $stmt->execute();
+
+            $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+            $produto = new Produto(
+                $row["nome"] ?? null,
+                $row["marca"] ?? null,
+                $row["preco"] ?? null,
+                $row["imagem_url"] ?? null
+            );
+
+
+            return $produto;
+        } catch (\PDOException $e) {
+            echo "Erro ao recuperar produto por ID: " . $e->getMessage();
+            return null;
+        }
+    }
+
+    public function atualizar($codigo, $nome, $marca, $preco, $imagem_url)
+{
+    try {
+        if (!$codigo) {
+            throw new \PDOException("Código do produto inválido.");
+        }
+
+        if (!$this->findById($codigo)) {
+            throw new \PDOException("Produto não encontrado para o código: $codigo");
+        }
+
+        $stmt = $this->conexao->prepare("UPDATE produtos SET nome = :nome, marca = :marca, preco = :preco, imagem_url = :imagem_url WHERE codigo = :codigo");
+        $stmt->bindParam(':nome', $nome);
+        $stmt->bindParam(':marca', $marca);
+        $stmt->bindParam(':preco', $preco);
+        $stmt->bindParam(':imagem_url', $imagem_url);
+        $stmt->bindParam(':codigo', $codigo);
+
+        if (!$stmt->execute()) {
+            throw new \PDOException("Erro ao executar a consulta de atualização. Detalhes: " . implode(' ', $stmt->errorInfo()));
+        }
+
+        if ($stmt->rowCount() > 0) {
+            return $this->findById($codigo);
+        } else {
+            throw new \PDOException("Nenhum produto encontrado para o código: $codigo");
+        }
+    } catch (\PDOException $e) {
+        echo "Erro ao atualizar produto: " . $e->getMessage();
+        return null;
+    }
 }
-print_r("Error: ". $SQL. "<br />".$conn->error);
-        return $produto;
-    }
-    // Delete (D)
-    public function deletar($id){
- $conexao = new Conexao();
- $conn = $conexao->getConexao();
 
- $SQL = "delete from produtos where codigo = ".$id;
- if($conn->query($SQL) === TRUE){
-    return true;
- }
- return false;
-    }
+    public function deletar($id)
+    {
+        try {
+            $stmt = $this->conexao->prepare("DELETE FROM produtos WHERE codigo = :id");
+            $stmt->bindParam(':id', $id);
+            $stmt->execute();
 
+            return true;
+        } catch (\PDOException $e) {
+            echo "Erro ao deletar produto: " . $e->getMessage();
+            return false;
+        }
+    }
 }
-
-
 ?>
